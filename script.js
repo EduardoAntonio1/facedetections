@@ -1,4 +1,5 @@
 const video = document.getElementById('video')
+const resultado = document.getElementById('resultado')
 
 Promise.all([
     faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
@@ -26,12 +27,16 @@ video.addEventListener('play', async() => {
         const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceExpressions().withFaceDescriptors()
         const resizedDetections = faceapi.resizeResults(detections, displaySize)
         const results = resizedDetections.map(d => faceMatcher.findBestMatch(d.descriptor))
-        console.log(results)
         canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height)
         faceapi.draw.drawDetections(canvas, resizedDetections)
         faceapi.draw.drawFaceLandmarks(canvas, resizedDetections)
         faceapi.draw.drawFaceExpressions(canvas, resizedDetections)
         results.forEach((result, i) => {
+            if (result._label == 'unknown') {
+                resultado.innerHTML = 'DESCONOCIDO'
+            } else if (result._label) {
+                resultado.innerHTML = result._label
+            }
             const box = resizedDetections[i].detection.box
             const drawBox = new faceapi.draw.DrawBox(box, { label: result.toString() })
             drawBox.draw(canvas)
