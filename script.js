@@ -15,7 +15,9 @@ function startVideo() {
     )
 }
 
-video.addEventListener('play', () => {
+video.addEventListener('play', async() => {
+    const labeledFaceDescriptors = await loadLabeledImages()
+    const faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.6)
     const canvas = faceapi.createCanvasFromMedia(video)
     document.body.append(canvas)
     const displaySize = { width: video.width, height: video.height }
@@ -23,9 +25,32 @@ video.addEventListener('play', () => {
     setInterval(async() => {
         const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceExpressions()
         const resizedDetections = faceapi.resizeResults(detections, displaySize)
+        const results = resizedDetections.map(d => faceMatcher.findBestMatch(d.descriptor))
+        console.log(results)
         canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height)
         faceapi.draw.drawDetections(canvas, resizedDetections)
         faceapi.draw.drawFaceLandmarks(canvas, resizedDetections)
         faceapi.draw.drawFaceExpressions(canvas, resizedDetections)
+        results.forEach((result, i) => {
+            const box = resizedDetections[i].detection.box
+            const drawBox = new faceapi.draw.DrawBox(box, { label: result.toString() })
+            drawBox.draw(canvas)
+        })
     }, 100)
 })
+
+function loadLabeledImages() {
+    const labels = ['Black Widow', 'Captain America', 'Captain Marvel', 'Eduardo Antonio', 'Hawkeye', 'Jim Rhodes', 'Thor', 'Tony Stark']
+    return Promise.all(
+        labels.map(async label => {
+            const descriptions = []
+            for (let i = 1; i <= 2; i++) {
+                const img = await faceapi.fetchImage(`https://raw.githubusercontent.com/EduardoAntonio1/facedetections/main/labeled_images/${label}/${i}.jpg`)
+                const detections = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor()
+                descriptions.push(detections.descriptor)
+            }
+
+            return new faceapi.LabeledFaceDescriptors(label, descriptions)
+        })
+    )
+}
